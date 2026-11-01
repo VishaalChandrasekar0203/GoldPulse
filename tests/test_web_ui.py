@@ -23,6 +23,8 @@ def test_ui_payload_includes_loaded_at(store, cfg):
     payload = load_ui_payload(cfg=cfg, store=store)
     assert payload.get("loaded_at")
     assert payload["forecast_book"] == payload["brief"]["forecast_book"]
+    assert "physical" in payload
+    assert payload["physical"]["data_ok"] is False
 
 
 def test_web_load_module_does_not_import_streamlit():

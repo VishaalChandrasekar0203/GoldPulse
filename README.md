@@ -1,210 +1,64 @@
-# GoldPulse
+# Gold Pulse
 
-**v1.0.0** — local gold intelligence for Indian INR / 10g parity.
+Gold Pulse is a research dashboard for **Indian rupee gold**, built around one honest number: the international price of gold converted to **INR per 10 grams**. It is meant for someone who wants to see what COMEX and the rupee imply for jewellery and bars, how far today’s print sits from recent averages, and whether a dealer quote is a fat premium — without pretending we have licensed MCX or IBJA prints.
 
-GoldPulse downloads public market data, stores it on your machine, and produces 1-day, 7-day, 30-day, and 90-day forecasts of **international gold converted to rupees per 10 grams**. You can use it from the terminal, an optional local browser dashboard, or a scheduled daily job.
+The app lives on your machine. It downloads public market history, stores it in DuckDB, and serves a Streamlit overview plus a terminal brief. It is **not** trading advice.
 
-It does **not** scrape MCX or IBJA. Those prints are licensed and are left empty on purpose. It is **not** trading advice.
-
-Repository: [github.com/VishaalChandrasekar0203/GoldPulse](https://github.com/VishaalChandrasekar0203/GoldPulse)
+[github.com/VishaalChandrasekar0203/GoldPulse](https://github.com/VishaalChandrasekar0203/GoldPulse) · **v1.1**
 
 ---
 
-## What you get
+## What we are trying to do
 
-| You want | Command |
-|---|---|
-| Set up once | `gold init` then `gold data update` then `gold train --all` then `gold forecast --horizon all` |
-| Daily numbers in the terminal | `gold brief` |
-| Local web dashboard | `gold ui` |
-| Hands-off daily refresh | `gold run` |
-| What-if INR impact | `gold scenario --pack` |
+Rupee gold is not a single series. COMEX gold in dollars, USD/INR, import duty, GST, BIS hallmark purity, and the jeweller’s making charge all sit on top of each other. Official MCX futures and IBJA AM/PM benchmarks are licensed; this project does not scrape or invent them.
 
-The modelled series is:
+So Gold Pulse does three things:
+
+1. **Build a clean international parity series** from 2010 onward, leak-free, and forecast it at 1, 7, 30, and 90 days with models that have to beat a naive “no change” benchmark.
+2. **Translate that parity into a physical estimate** a buyer can compare to a real quote: 22K / 916 hallmark (or 24K / 18K / 14K), plus duty and GST.
+3. **Show a transparent Buy / Wait / Sell checklist** on drawdowns, moving averages, USD/INR contribution, volatility, and dealer premium. Every check has a written rule. None of it is an unsupported model call.
+
+The identity behind the target is:
 
 ```
 gold_inr_10g  =  COMEX gold (USD/oz)  ×  USD/INR  ×  (10 / 31.1034768)
 ```
 
-That is **international parity**. It excludes Indian import duty, GST, making charges, and local premium. GOLDBEES is stored as an onshore ETF proxy, labelled separately, and is **not** IBJA.
+That is **24K / 999 international parity**. It excludes duty, GST, making, and local premium. GOLDBEES is kept as an onshore ETF proxy and is labelled as such — it is not IBJA.
 
----
+Hallmarked jewellery is then:
 
-## Requirements
-
-- macOS or Linux
-- Python **3.11 or newer**
-- Internet for the first data download (Yahoo Finance, US Treasury, World Bank)
-- About 1 GB of disk after history is stored locally
-
-Windows works if you use the same commands in Git Bash or PowerShell, using `.venv\Scripts\activate` instead of `source .venv/bin/activate`.
-
----
-
-## Install (first time)
-
-Do **not** put `# comments` on the same line as a command. The CLI will treat them as extra arguments.
-
-```bash
-git clone https://github.com/VishaalChandrasekar0203/GoldPulse.git
-cd GoldPulse
-
-python3 -m venv .venv
-source .venv/bin/activate
-
-pip install -U pip
-pip install -e ".[dev,ui]"
+```
+estimated physical  =  parity × (fineness / 999) × (1 + duty) × (1 + GST) × (1 + making)
 ```
 
-`[ui]` installs Streamlit for the local browser app. Skip it if you only want the terminal:
+The headline extra metric is:
 
-```bash
-pip install -e ".[dev]"
+```
+Physical Gold Premium  =  dealer quote  −  international parity
 ```
 
 ---
 
-## First run (about 5–15 minutes)
+## The dashboard
 
-From the project folder, with the virtualenv active:
+Open **Gold Pulse** after the first data load. Overview is the daily page: parity, hallmark-adjusted physical, the 1-day forecast interval in full (not truncated), averages, drawdowns, USD/INR impact, and the coloured Buy / Wait / Sell chip.
 
-```bash
-gold init
-gold data update
-gold features build
-gold train --all
-gold forecast --horizon all
-gold brief
-```
+![Gold Pulse overview](docs/images/overview.png)
 
-What each step does:
+The chart can show the last 90 sessions, a year, 500 sessions, or the **full sample from 2010**. Zooming the chart does not drop history from the database.
 
-1. **`gold init`** — creates `data/gold.duckdb` and the series catalog. MCX and IBJA are marked unavailable.
-2. **`gold data update`** — downloads public history (gold, USD/INR, DXY, yields, WTI, GOLDBEES, CPI, policy tables).
-3. **`gold features build`** — leak-free feature matrix. No future prints are joined.
-4. **`gold train --all`** — walk-forward training. A model is promoted only if it beats naive on the latest holdout **and** on at least 3 of 5 historical regimes.
-5. **`gold forecast --horizon all`** — writes 1d / 7d / 30d / 90d points and intervals into DuckDB.
-6. **`gold brief`** — prints the daily summary: parity, forecasts, 1d EWMA band, drivers, scenario packs, alerts.
+![Forecasts and history](docs/images/forecasts.png)
 
-Then open the dashboard (optional):
-
-```bash
-gold ui
-```
-
-Your browser should open [http://127.0.0.1:8501](http://127.0.0.1:8501). Leave that terminal running. Use another terminal for `gold brief` or `gold run`. Press Ctrl+C to stop the UI only.
-
-If port 8501 is busy:
-
-```bash
-gold ui --port 8502
-```
-
-The UI **does not poll**. After you run `gold data update` or `gold forecast` in another terminal, click **Reload from DuckDB**. The sidebar timestamp updates even when the numbers are unchanged.
+Enter a jeweller quote and your average purchase cost if you have them. Buy is light green, Wait is light yellow, Sell is light red. The table next to the chip lists which rules fired.
 
 ---
 
-## Everyday use
+## Models and holdout metrics
 
-### Morning check
+The production target is the **h-day log return** of `gold_inr_10g`, reconstructed as `price = close[t] × exp(ŷ)`. Training is chronological: an expanding window across five market regimes, then a final holdout of the last **252 sessions**. A model is promoted only if it beats naive on that holdout **and** on at least three of the five regimes. Tree models (XGBoost, LightGBM) were tried and are **not** champions.
 
-```bash
-cd GoldPulse
-source .venv/bin/activate
-gold brief
-```
-
-### Refresh data and forecasts (recommended daily command)
-
-```bash
-gold run
-```
-
-`gold run` will:
-
-1. Take an exclusive lock so two jobs cannot collide
-2. Back up DuckDB and parquet
-3. Ingest new prints with retries
-4. Skip the forecast if gold, USD/INR, or parity is missing or stale
-5. Reuse yesterday’s live book if the cutoff has not moved
-6. Score forecasts whose target dates have now printed
-7. Write an audit row with a unique run id
-
-It **does not retrain models**. Champions stay frozen until you explicitly run `gold train --all`.
-
-### What-if calculator (not a forecast)
-
-```bash
-gold scenario --xau 1 --usdinr 1 --dxy 1 --yield-bp 25 --duty-pp 1 --premium-pp 1
-gold scenario --pack
-```
-
-`--pack` prints named Bull / Bear / Stress identity shocks. Outputs are labelled **SCENARIO, NOT A FORECAST**.
-
----
-
-## Command reference
-
-| Command | What it does |
-|---|---|
-| `gold init` | Create local folders, DuckDB schema, and catalog |
-| `gold data update` | Incremental download of public series |
-| `gold data update --full` | Re-download from 2010 instead of incremental |
-| `gold data history` | Coverage table and restricted sources |
-| `gold data validate` | Gaps, flags, anomalies (anomalies are kept unless out of range) |
-| `gold features build` | Rebuild the leak-free feature matrix |
-| `gold train --all` | Train, compare, promote. **Only way to change champions** |
-| `gold backtest` | Chronological holdout comparison |
-| `gold compare` | Same as `gold backtest` |
-| `gold forecast --horizon 1d` | Write one horizon |
-| `gold forecast --horizon 7d` | Write the 7-day horizon |
-| `gold forecast --horizon all` | Write 1d, 7d, 30d, 90d |
-| `gold brief` | Daily intelligence summary |
-| `gold monitor` | Score realized outcomes, rolling MAE / coverage |
-| `gold scenario` | Custom identity / elasticity shocks |
-| `gold scenario --pack` | Bull, bear, stress packs |
-| `gold status` | DuckDB counts, last ingest, source health |
-| `gold health` | Freshness gate for critical series |
-| `gold backup` | Copy DuckDB + parquet to `data/backups/` |
-| `gold restore --from data/backups/<stamp> --yes` | Restore a backup (stop `gold ui` first) |
-| `gold report` | Write a markdown report under `reports/output/` |
-| `gold run` | Daily ops loop (no retrain) |
-| `gold ui` | Local Streamlit app on 127.0.0.1:8501 |
-| `gold tui` | Optional Textual terminal dashboard |
-
-### Useful options
-
-```bash
-gold forecast --horizon all
-gold ui --port 8502
-gold restore --from data/backups/20261101T120000Z --yes
-```
-
-`gold restore` refuses to overwrite unless you pass `--yes`.
-
----
-
-## Schedule it (optional)
-
-Weekday mornings, Asia/Kolkata:
-
-```cron
-15 7 * * 1-5 cd /path/to/GoldPulse && /path/to/GoldPulse/.venv/bin/gold run >> data/logs/cron.log 2>&1
-```
-
-Or use the bundled script:
-
-```bash
-chmod +x scripts/daily.sh
-```
-
-Point launchd / cron at `scripts/daily.sh`. The app stays on your machine. There is no cloud deploy.
-
----
-
-## Production forecasts (v1.0)
-
-Chronological holdout, pipeline `v2-logret`. Not a random train/test split.
+Pipeline version: `v2-logret`.
 
 | Horizon | Champion | Holdout MAPE | Holdout MAE (INR / 10g) | Interval |
 |---|---|---|---|---|
@@ -213,90 +67,76 @@ Chronological holdout, pipeline `v2-logret`. Not a random train/test split.
 | 30 calendar days | naive | 5.81% | 7,827 | residual RMSE |
 | 90 calendar days | naive | 10.81% | 14,522 | residual RMSE |
 
-Naive means “tomorrow’s price equals today’s close” in log-return space (predicted change is zero). ARIMA at 7d is a 0.04% near-tie that still cleared the written promotion rule (holdout **and** 3 of 5 regimes). XGBoost and LightGBM are not production champions.
+Naive means “tomorrow equals today’s close” in return space. ARIMA at 7 days is a 0.04% near-tie that still cleared the written rule. Intervals are not guaranteed coverage. Scenario packs (bull / bear / stress) are identity what-ifs and are labelled **not a forecast**.
 
 ---
 
-## Data
+## Data we use
 
-Stored locally in **DuckDB + Parquet** under `data/` (gitignored).
+Ingest is configured from **2010-01-01**. On a current run, `gold_inr_10g` has about **4,200 daily sessions** from **2010-01-04** through the latest COMEX print — roughly **17 years**, not one year.
 
 | Series | Source | Role |
 |---|---|---|
-| `gold_usd_oz` | Yahoo `GC=F` | COMEX gold |
-| `usd_inr` | Yahoo `INR=X` | FX |
+| COMEX gold `GC=F` | Yahoo Finance | Dollar gold |
+| USD/INR `INR=X` | Yahoo Finance | Rupee |
 | `gold_inr_10g` | derived | Primary target (parity) |
-| `dxy` | Yahoo | Dollar index |
-| `us_10y_yield` | Yahoo `^TNX` | Nominal 10y |
-| `us_real_yield_10y` | US Treasury TIPS | Real 10y |
-| `wti_usd` | Yahoo `CL=F` | Oil |
-| `gold_etf_nse` / `gold_etf_inr_10g` | Yahoo `GOLDBEES.NS` | Onshore ETF proxy |
-| `india_cpi` | World Bank | Macro, lagged |
-| import duty, RBI repo, festivals | curated tables in `config/` | Policy / calendar |
-| `mcx_gold_futures` | unavailable | Not fabricated |
-| `ibja_gold` | unavailable | Not fabricated |
+| DXY, US 10y, WTI | Yahoo Finance | Drivers |
+| 10y TIPS real yield | US Treasury | Real rates |
+| GOLDBEES | Yahoo Finance | Onshore ETF proxy, not IBJA |
+| India CPI | World Bank | Lagged macro |
+| Import duty, RBI repo, festivals | curated tables in `config/` | Policy / calendar |
+| MCX gold futures | unavailable | Licensed — left empty |
+| IBJA gold | unavailable | Licensed — left empty |
 
-FRED CSV is a fail-fast fallback and is often empty. Empty fallbacks are not treated as stale gold prints.
+Everything is stored as **DuckDB + Parquet** under `data/` on your disk. Look-ahead is blocked by joining exogenous series only when `available_at ≤ feature_date`.
 
 ---
 
-## How look-ahead is prevented
+## How to run it
 
-- Exogenous series join on `available_at <= feature_date` (publication lag for CPI and rates).
-- Splits are chronological. Rows are never shuffled.
-- Models forecast **h-day log returns** and reconstruct `price = close[t] × exp(ŷ)`.
-- Daily `gold run` will not forecast if `gold_usd_oz`, `usd_inr`, or `gold_inr_10g` is missing, invalid, or stale.
+You need Python 3.11+ and a network connection for the first download.
+
+```bash
+git clone https://github.com/VishaalChandrasekar0203/GoldPulse.git
+cd GoldPulse
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -e ".[dev,ui]"
+```
+
+Then, once, build the book (about 5–15 minutes):
+
+```bash
+gold init
+gold data update
+gold features build
+gold train --all
+gold forecast --horizon all
+gold ui
+```
+
+The browser opens [http://127.0.0.1:8501](http://127.0.0.1:8501). After that, a morning refresh is `gold run` (it does not retrain) and `gold brief` if you want the same numbers in the terminal. Click **Reload from DuckDB** in the sidebar after a refresh — the UI does not poll.
+
+Do not put `# comments` on the same line as a `gold` command; the CLI will treat them as extra arguments.
+
+`gold train --all` is the only way champions change. `gold run` locks, backs up, ingests, forecasts if the tape is fresh, and scores outcomes.
 
 ---
 
 ## Project layout
 
 ```
-config/          sources, duty/repo/festival tables
-src/gold/        ingestion, DuckDB, features, models, forecast, ops, CLI, UI
-tests/           unit and integration tests
-scripts/daily.sh local cron/launchd helper
-reports/output/  generated reports (local; not required to clone)
-data/            DuckDB, parquet, backups, logs (created on your machine)
-```
-
----
-
-## Tests
-
-```bash
-source .venv/bin/activate
-pytest
-```
-
----
-
-## Troubleshooting
-
-**`Got unexpected extra argument(s)`**  
-You pasted a comment on the same line, for example `gold ui # http://127.0.0.1:8501`. Run the command alone.
-
-**`Streamlit is not installed`**  
-`pip install -e ".[ui]"` then `gold ui`.
-
-**Reload in the UI does nothing visible**  
-The catalog did not change. Check the sidebar **Loaded … UTC** timestamp. Run `gold data update` or `gold forecast --horizon all` in another terminal, then click Reload.
-
-**Forecast still shows an old naive 7d row after `gold train --all`**  
-`gold forecast` will not overwrite a live book for the same cutoff. A new gold session (new cutoff) writes a new book. Daily `gold run` is the intended path.
-
-**`gold run` says locked**  
-Another `gold run` is in progress. Wait, or delete `data/gold.run.lock` only if that process is dead.
-
-**Restore**  
-Stop `gold ui` first, then:
-
-```bash
-gold restore --from data/backups/<timestamp> --yes
+config/     source catalog, duty / repo / festival tables
+src/gold/   ingest, DuckDB, features, models, forecast, ops, CLI, UI
+tests/      unit and integration tests
+docs/       research notes and UI screenshots
+scripts/    daily.sh for cron or launchd
+data/       created on your machine — not in git
 ```
 
 ---
 
 ## Disclaimer
 
-GoldPulse is a research and monitoring tool. Forecasts can be wrong. Intervals are not guaranteed coverage. Scenarios are identity overlays, not statistically validated predictions. Official MCX and IBJA prints are not in this database. Do not treat output as investment, trading, or tax advice.
+Forecasts can be wrong. Intervals are not guaranteed. Buy / Wait / Sell is a checklist, not a recommendation. Scenarios are identity overlays. Official MCX and IBJA prints are not in this database. Do not treat Gold Pulse as investment, trading, or tax advice.

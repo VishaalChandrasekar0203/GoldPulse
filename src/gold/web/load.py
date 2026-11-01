@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from gold.config import AppConfig, load_config
 from gold.data.quality import read_quality_table
 from gold.database.store import GoldStore
+from gold.intelligence.physical import load_user_tracker, physical_base
 from gold.ops.audit import set_actor
 from gold.ops.book import brief_forecast_fingerprint
 from gold.terminal.brief import build_brief
@@ -32,6 +33,9 @@ def load_ui_payload(cfg: AppConfig | None = None, store: GoldStore | None = None
         health = store.health()
         outcomes = store.forecast_outcomes()
         catalog = store.catalog()
+        parity = store.load_series(cfg.primary_series)
+        physical = physical_base(store, cfg)
+        tracker = load_user_tracker(cfg)
         brief.setdefault("forecast_book", brief_forecast_fingerprint(brief))
         loaded_at = datetime.now(tz=timezone.utc).replace(microsecond=0).isoformat()
         return {
@@ -40,6 +44,9 @@ def load_ui_payload(cfg: AppConfig | None = None, store: GoldStore | None = None
             "health": health,
             "outcomes": outcomes,
             "catalog": catalog,
+            "parity": parity,
+            "physical": physical,
+            "tracker": tracker,
             "forecast_book": brief["forecast_book"],
             "loaded_at": loaded_at,
         }

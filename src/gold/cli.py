@@ -411,7 +411,7 @@ def _launch_streamlit(host: str = "127.0.0.1", port: int = 8501) -> None:
     env["GOLD_HOME"] = str(cfg.project_root)
     env["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
     cmd = streamlit_command(APP_PATH, host=host, port=port)
-    console.print(f"[green]Gold Intelligence[/green] local UI → http://{host}:{port}")
+    console.print(f"[green]Gold Pulse[/green] → http://{host}:{port}")
     console.print("[dim]CLI remains available in another terminal. Ctrl+C stops the UI only.[/dim]")
     raise SystemExit(subprocess.call(cmd, env=env))
 

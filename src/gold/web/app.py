@@ -8,7 +8,7 @@ import streamlit as st
 from gold.web.load import UiDataError, load_ui_payload
 
 st.set_page_config(
-    page_title="Gold Intelligence",
+    page_title="Gold Pulse",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -16,12 +16,89 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      .stApp { background: #111111; }
-      [data-testid="stHeader"] { background: #111111; }
-      [data-testid="stSidebar"] { background: #16120a; }
-      [data-testid="stMetricValue"] { color: #f3d38a; font-variant-numeric: tabular-nums; }
-      .gold-kicker { color: #c9a227; letter-spacing: 0.12em; font-size: 0.72rem; text-transform: uppercase; }
-      .gold-title { color: #f3d38a; font-size: 1.7rem; font-weight: 600; margin: 0.15rem 0 0.6rem 0; }
+      .stApp { background: #141416; color: #d8d5cf; }
+      [data-testid="stHeader"] { background: #141416; }
+      [data-testid="stToolbar"] { visibility: hidden; }
+      [data-testid="stDecoration"] { display: none; }
+      [data-testid="stSidebar"] { background: #18181b; border-right: 1px solid #26262b; }
+      [data-testid="stSidebar"] * { color: #c9c6bf; }
+      .block-container { padding-top: 1.35rem; padding-bottom: 2.5rem; max-width: 1240px; }
+      footer { visibility: hidden; }
+      [data-testid="stMetricValue"] {
+        color: #eceae4;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        font-size: 1.02rem !important;
+      }
+      div[data-testid="stMetric"] { overflow: visible; }
+      .gold-kicker {
+        color: #8d8a84;
+        letter-spacing: 0.08em;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        font-weight: 500;
+      }
+      .gold-title {
+        color: #eceae4;
+        font-size: 1.55rem;
+        font-weight: 560;
+        letter-spacing: -0.02em;
+        margin: 0.1rem 0 0.35rem 0;
+      }
+      .gold-card {
+        background: #1c1c20;
+        border: 1px solid #2a2a30;
+        border-radius: 8px;
+        padding: 0.8rem 0.95rem 0.85rem 0.95rem;
+        margin-bottom: 0.55rem;
+        overflow: visible;
+      }
+      .gold-value {
+        color: #eceae4;
+        font-size: 1.18rem;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: visible;
+        line-height: 1.35;
+        font-weight: 550;
+      }
+      .gold-value-wrap { white-space: normal; }
+      .gold-sub { color: #9a978f; font-size: 0.75rem; margin-top: 0.22rem; line-height: 1.4; }
+      .gold-stance-label { font-size: 1.35rem; font-weight: 600; margin: 0.12rem 0; }
+      .stance-Buy {
+        background: #d8f3dc;
+        border: 1px solid #b7e4c7;
+      }
+      .stance-Buy .gold-kicker, .stance-Buy .gold-sub { color: #2d6a4f; }
+      .stance-Buy .gold-stance-label { color: #1b4332; }
+      .stance-Wait {
+        background: #fff3bf;
+        border: 1px solid #ffe066;
+      }
+      .stance-Wait .gold-kicker, .stance-Wait .gold-sub { color: #8a6d1b; }
+      .stance-Wait .gold-stance-label { color: #5c4b12; }
+      .stance-Sell, .stance-Review {
+        background: #ffd6d6;
+        border: 1px solid #f5b5b5;
+      }
+      .stance-Sell .gold-kicker, .stance-Sell .gold-sub,
+      .stance-Review .gold-kicker, .stance-Review .gold-sub { color: #8b2e2e; }
+      .stance-Sell .gold-stance-label, .stance-Review .gold-stance-label { color: #6b1d1d; }
+      .stance-Hold {
+        background: #eceae4;
+        border: 1px solid #d4d1c9;
+      }
+      .stance-Hold .gold-kicker, .stance-Hold .gold-sub { color: #5c5a55; }
+      .stance-Hold .gold-stance-label { color: #2f2e2b; }
+      h3, h2 { color: #eceae4 !important; font-weight: 550 !important; letter-spacing: -0.01em; }
+      .stCaption, [data-testid="stCaptionContainer"] { color: #8d8a84 !important; }
+      div[data-testid="stExpander"] {
+        background: #1c1c20;
+        border: 1px solid #2a2a30;
+        border-radius: 8px;
+      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -56,7 +133,20 @@ def _frame(df, **kwargs):
         return st.dataframe(df, hide_index=True, use_container_width=True, **kwargs)
 
 
-@st.cache_data(ttl=30, show_spinner="Loading local DuckDB…")
+def _card(title: str, value: str, sub: str = "", stance: str | None = None, wrap: bool = False) -> None:
+    klass = "gold-card"
+    if stance:
+        klass += f" stance-{stance}"
+    vklass = "gold-value gold-value-wrap" if wrap else "gold-value"
+    st.markdown(
+        f'<div class="{klass}"><div class="gold-kicker">{title}</div>'
+        f'<div class="{vklass}">{value}</div>'
+        f'<div class="gold-sub">{sub}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+@st.cache_data(ttl=30, show_spinner="Loading DuckDB…")
 def _payload(epoch: int):
     # epoch is a cache key so Reload always bypasses the 30s TTL.
     return load_ui_payload()
@@ -88,13 +178,28 @@ def _require_payload():
 
 
 def _overview(data: dict) -> None:
+    from gold.config import load_config
+    from gold.intelligence.physical import (
+        DEFAULT_GST_PCT,
+        DEFAULT_HALLMARK_FINENESS,
+        DEFAULT_MAKING_PCT,
+        HALLMARK_CHOICES,
+        apply_quotes,
+        save_user_tracker,
+    )
+
     brief = data["brief"]
     snap = brief.get("snapshot")
-    st.markdown('<div class="gold-kicker">International gold parity · INR / 10g</div>', unsafe_allow_html=True)
-    st.markdown('<div class="gold-title">Gold Intelligence · Local</div>', unsafe_allow_html=True)
-    if snap is None:
+    base = data.get("physical") or {}
+    tracker = data.get("tracker") or {}
+    st.markdown('<div class="gold-kicker">International parity · INR / 10g</div>', unsafe_allow_html=True)
+    st.markdown('<div class="gold-title">Gold Pulse</div>', unsafe_allow_html=True)
+    if snap is None and not base.get("parity_inr_10g"):
         st.warning("No market snapshot. Run `gold data update`. Parity is not fabricated from MCX/IBJA.")
         return
+
+    st.caption(base.get("history_note") or brief.get("target_note"))
+
     fc1 = brief.get("forecast_1d") or {}
     vol = brief.get("parity_vol_ewma")
     champs = brief.get("champions")
@@ -106,16 +211,187 @@ def _overview(data: dict) -> None:
         labels = " / ".join(names)
     else:
         labels = "untrained"
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Latest parity", _inr(snap.parity_inr_10g), help="gold_inr_10g = GC=F × USDINR × (10/31.1034768). Not MCX or IBJA.")
-    c2.metric("Daily EWMA volatility", f"{100 * vol:.2f}%" if vol else "n/a")
-    if fc1:
-        c3.metric("1d forecast interval", f"{_inr(fc1.get('lower'))} – {_inr(fc1.get('upper'))}")
-    else:
-        c3.metric("1d forecast interval", "n/a")
-        st.caption("No stored 1d forecast. Run `gold forecast --horizon all`.")
-    c4.metric("Forecast champions", labels)
-    c4.caption("1d / 7d / 30d / 90d")
+
+    default_gst = float(tracker.get("gst_pct") or DEFAULT_GST_PCT)
+    default_making = float(tracker.get("making_pct") or DEFAULT_MAKING_PCT)
+    default_dealer = float(tracker.get("dealer_price") or 0.0)
+    default_avg = float(tracker.get("avg_cost") or 0.0)
+    default_hallmark = int(tracker.get("hallmark_fineness") or DEFAULT_HALLMARK_FINENESS)
+    if default_hallmark not in HALLMARK_CHOICES:
+        default_hallmark = DEFAULT_HALLMARK_FINENESS
+    hallmark_labels = list(HALLMARK_CHOICES.values())
+    hallmark_keys = list(HALLMARK_CHOICES.keys())
+
+    with st.expander("Dealer quote, hallmark, and average cost", expanded=default_dealer > 0 or default_avg > 0):
+        q1, q2 = st.columns(2)
+        dealer = q1.number_input(
+            "Dealer quote (INR / 10g)",
+            min_value=0.0,
+            value=default_dealer,
+            step=100.0,
+            help="What a jeweller or bank is asking today for 10g. Leave 0 if you do not have a quote.",
+        )
+        avg_cost = q2.number_input(
+            "Your average purchase cost (INR / 10g)",
+            min_value=0.0,
+            value=default_avg,
+            step=100.0,
+            help="Book cost of gold you already hold, per 10g. Leave 0 to skip the position tracker.",
+        )
+        q3, q4, q5 = st.columns(3)
+        hallmark_label = q3.selectbox(
+            "BIS hallmark",
+            hallmark_labels,
+            index=hallmark_keys.index(default_hallmark),
+            help="International parity is 24K / 999. Indian jewellery is usually 22K / 916.",
+        )
+        hallmark_fineness = hallmark_keys[hallmark_labels.index(hallmark_label)]
+        gst_pct = q4.number_input("GST %", min_value=0.0, value=default_gst, step=0.5)
+        making_pct = q5.number_input("Making %", min_value=0.0, value=default_making, step=0.5)
+        if st.button("Save quotes"):
+            save_user_tracker(
+                load_config(),
+                {
+                    "dealer_price": dealer or None,
+                    "avg_cost": avg_cost or None,
+                    "gst_pct": gst_pct,
+                    "making_pct": making_pct,
+                    "hallmark_fineness": hallmark_fineness,
+                },
+            )
+            st.success("Saved to data/user_tracker.json on this machine.")
+
+    layer = apply_quotes(
+        base,
+        dealer_price=dealer if dealer > 0 else None,
+        avg_cost=avg_cost if avg_cost > 0 else None,
+        gst_pct=gst_pct,
+        making_pct=making_pct,
+        hallmark_fineness=hallmark_fineness,
+    )
+    quotes = layer.get("quotes") or {}
+    stance = layer.get("stance") or {}
+    parity_v = layer.get("parity_inr_10g") or (snap.parity_inr_10g if snap is not None else None)
+
+    r1, r2, r3, r4 = st.columns(4)
+    with r1:
+        _card(
+            "International parity / 10g",
+            _inr(parity_v),
+            f"24K / 999 · GC=F × USD/INR × (10/31.1034768) · {layer.get('as_of') or _dt(getattr(snap, 'as_of', None))}",
+        )
+    with r2:
+        _card(
+            "Estimated physical / 10g",
+            _inr(quotes.get("estimated_physical_inr_10g")),
+            (
+                f"{quotes.get('hallmark_label', '22K / 916')} metal {_inr(quotes.get('hallmarked_metal_inr_10g'))} "
+                f"then +{quotes.get('duty_pct') or 0:.1f}% duty +{gst_pct:.1f}% GST +{making_pct:.1f}% making. "
+                "Purity overlay only — not a hallmarked invoice or MCX/IBJA."
+            ),
+        )
+    with r3:
+        prem = quotes.get("physical_premium_inr")
+        prem_pct = quotes.get("physical_premium_pct")
+        if prem is None:
+            etf_p = layer.get("etf_premium_inr")
+            _card(
+                "Physical gold premium",
+                "Enter a dealer quote",
+                "Premium = dealer price − international parity. "
+                + (
+                    f"GOLDBEES vs parity {_inr(etf_p)} ({_pct(layer.get('etf_premium_pct'))}) is an ETF proxy, not a jeweller."
+                    if etf_p is not None
+                    else "GOLDBEES ETF gap unavailable."
+                ),
+            )
+        else:
+            _card(
+                "Physical gold premium",
+                f"{_inr(prem)}  ({_pct(prem_pct)})",
+                "Dealer price − international parity. Positive means you pay above COMEX×FX.",
+            )
+    with r4:
+        if fc1:
+            _card(
+                "1-day forecast interval",
+                f"{_inr(fc1.get('lower'))}  →  {_inr(fc1.get('upper'))}",
+                f"Point {_inr(fc1.get('point'))} · {fc1.get('model_name', 'n/a')} · EWMA × √h",
+            )
+        else:
+            _card("1-day forecast interval", "n/a", "No stored 1d forecast. Run gold forecast --horizon all.")
+
+    i1, i2, i3, i4 = st.columns(4)
+    vs = layer.get("vs_ma") or {}
+    dd = layer.get("drawdown") or {}
+    with i1:
+        _card(
+            "Vs 7 / 30 / 90 session averages",
+            f"{_pct(vs.get('7'))}   {_pct(vs.get('30'))}   {_pct(vs.get('90'))}",
+            "Trailing session means. Weekends have no COMEX print.",
+            wrap=True,
+        )
+    with i2:
+        _card(
+            "Drawdown vs 30d / 90d highs",
+            f"{_pct(dd.get('30'))}   /   {_pct(dd.get('90'))}",
+            "Last print vs the high of the last 30 and 90 sessions.",
+        )
+    with i3:
+        _card(
+            "USD/INR impact",
+            f"1d {_pct(layer.get('ret_1d_fx'))} · 21d {_pct(layer.get('ret_21d_fx'))}",
+            (
+                f"Parity 1d {_pct(layer.get('ret_1d_parity'))} ≈ XAU {_pct(layer.get('ret_1d_xau'))} + FX {_pct(layer.get('ret_1d_fx'))}. "
+                f"{layer.get('identity_note')}"
+            ),
+        )
+    with i4:
+        vol_txt = f"{100 * vol:.2f}%" if vol else "n/a"
+        pctile = layer.get("ewma_vol_percentile")
+        down = (layer.get("downside") or {}).get("30d") or {}
+        _card(
+            "Historical vol & 30d downside",
+            f"EWMA {vol_txt}" + (f"  (p{100 * pctile:.0f})" if pctile is not None else ""),
+            (
+                f"Illustrative −1σ / −2σ 21-session: {_inr(down.get('sigma_1'))} / {_inr(down.get('sigma_2'))}. "
+                "EWMA×√h overlay — SCENARIO, NOT A FORECAST."
+            ),
+        )
+
+    if quotes.get("avg_cost"):
+        _card(
+            "Average purchase cost tracker",
+            f"Book {_inr(quotes.get('avg_cost'))} · vs parity {_pct(quotes.get('vs_avg_parity'))}",
+            f"Vs estimated physical {_pct(quotes.get('vs_avg_physical'))}. Positive vs parity means the international print is above your book.",
+        )
+
+    st.markdown("**Buy / Wait / Sell**")
+    st.caption(stance.get("disclaimer") or "")
+    sl, sr = st.columns([1, 2])
+    with sl:
+        st.markdown(
+            f'<div class="gold-card stance-{stance.get("label", "Hold")}"><div class="gold-kicker">Allocation stance</div>'
+            f'<div class="gold-stance-label">{stance.get("label", "Hold")}</div>'
+            f'<div class="gold-sub">{stance.get("why", "")}</div></div>',
+            unsafe_allow_html=True,
+        )
+        st.caption(f"Buy hits {stance.get('buy_hits', 0)} · Wait hits {stance.get('wait_hits', 0)} · champions {labels}")
+    with sr:
+        rows = []
+        for sig in stance.get("signals") or []:
+            fired = sig.get("fires")
+            mark = "yes" if fired is True else ("n/a" if fired is None else "no")
+            rows.append(
+                {
+                    "Side": sig.get("side", "").title(),
+                    "Check": sig.get("label"),
+                    "Fires": mark,
+                    "Rule": sig.get("rule"),
+                }
+            )
+        if rows:
+            _frame(pd.DataFrame(rows))
 
     health = data.get("health") or {}
     last = (health.get("last_ingestion_run") or {}) if isinstance(health, dict) else {}
@@ -124,8 +400,8 @@ def _overview(data: dict) -> None:
     if isinstance(fc, pd.DataFrame) and not fc.empty and "generated_at" in fc.columns:
         gen = fc["generated_at"].iloc[0]
     st.caption(
-        f"Data cutoff (gold session): {_dt(snap.as_of)} · last ingest: {last.get('run_id', 'n/a')} "
-        f"({last.get('status', 'n/a')}) · forecast generated: {_dt(gen)} · {brief.get('target_note')}"
+        f"Data cutoff (gold session): {layer.get('as_of') or _dt(getattr(snap, 'as_of', None))} · last ingest: {last.get('run_id', 'n/a')} "
+        f"({last.get('status', 'n/a')}) · forecast generated: {_dt(gen)}"
     )
 
     st.subheader("Horizon forecasts")
@@ -151,21 +427,27 @@ def _overview(data: dict) -> None:
     else:
         st.info("No forecasts stored. The CLI command `gold forecast --horizon all` writes them to DuckDB.")
 
-    parity = None
-    try:
-        from gold.config import load_config
-        from gold.database.store import GoldStore
-
-        cfg = load_config()
-        store = GoldStore(cfg)
-        parity = store.load_series("gold_inr_10g")
-        store.close()
-    except Exception:  # noqa: BLE001
-        parity = None
-    if parity is not None and not parity.empty:
-        p = parity.sort_values("obs_date").tail(500).copy()
+    parity = data.get("parity")
+    if parity is not None and not getattr(parity, "empty", True):
+        p = parity.sort_values("obs_date").copy()
         p["obs_date"] = pd.to_datetime(p["obs_date"])
-        st.caption("International parity, last 500 sessions (INR/10g). Not an official MCX/IBJA print.")
+        n = len(p)
+        window = st.selectbox(
+            "Parity chart window",
+            ["Last 90 sessions", "Last 1 year (~252 sessions)", "Last 500 sessions", "Full history (2010–)"],
+            index=2,
+        )
+        if window.startswith("Last 90"):
+            p = p.tail(90)
+        elif "1 year" in window:
+            p = p.tail(252)
+        elif "500" in window:
+            p = p.tail(500)
+        st.caption(
+            f"International parity INR/10g · showing {len(p):,} of {n:,} stored sessions "
+            f"({layer.get('history_start')} → {layer.get('history_end')}, ~{layer.get('history_years')} years). "
+            "Not an official MCX/IBJA print."
+        )
         st.line_chart(p.set_index("obs_date")["value"], height=240)
 
 
@@ -373,8 +655,8 @@ def main() -> None:
     if "db_epoch" not in st.session_state:
         st.session_state.db_epoch = 0
     with st.sidebar:
-        st.markdown("**Gold Intelligence**")
-        st.caption("Local · DuckDB · no cloud")
+        st.markdown("**Gold Pulse**")
+        st.caption("INR / 10g parity")
         page = st.radio(
             "Dashboard navigation",
             [
@@ -393,7 +675,7 @@ def main() -> None:
             st.cache_data.clear()
             st.rerun()
         if st.session_state.pop("reload_flash", False):
-            st.success("Re-read local DuckDB")
+            st.success("Reloaded from DuckDB")
         data_preview = None
         try:
             data_preview = _require_payload()
