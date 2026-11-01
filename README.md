@@ -4,7 +4,7 @@ Gold Pulse is a research dashboard for **Indian rupee gold**, built around one h
 
 The app lives on your machine. It downloads public market history, stores it in DuckDB, and serves a Streamlit overview plus a terminal brief. It is **not** trading advice.
 
-[github.com/VishaalChandrasekar0203/GoldPulse](https://github.com/VishaalChandrasekar0203/GoldPulse) · **v1.1**
+Current Version - **v1.1**
 
 ---
 
