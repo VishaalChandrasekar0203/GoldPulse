@@ -1,6 +1,6 @@
 # Gold Pulse
 
-Gold Pulse is a research dashboard for **Indian rupee gold**, built around one honest number: the international price of gold converted to **INR per 10 grams**. It is meant for someone who wants to see what COMEX and the rupee imply for jewellery and bars, how far today’s print sits from recent averages, and whether a dealer quote is a fat premium — without pretending we have licensed MCX or IBJA prints.
+Gold Pulse is a research dashboard for **Indian rupee gold**, built around one honest number: the international price of gold converted to **INR per 10 grams**. It is meant for someone who wants to see what COMEX and the rupee imply for jewellery and bars, how far today’s print sits from recent averages, and whether a dealer quote is a fat premium without pretending we have licensed MCX or IBJA prints.
 
 The app lives on your machine. It downloads public market history, stores it in DuckDB, and serves a Streamlit overview plus a terminal brief. It is **not** trading advice.
 
