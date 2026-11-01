@@ -1,0 +1,220 @@
+# Public data sources. Unavailable / licensed series are recorded, never fabricated.
+series:
+  gold_usd_oz:
+    name: COMEX Gold Futures (USD/oz)
+    unit: USD/oz
+    frequency: daily
+    category: price
+    source: yfinance
+    ticker: GC=F
+    source_url: https://finance.yahoo.com/quote/GC=F
+    license: "Yahoo Finance terms; personal/research use"
+    publication_lag_days: 0
+    status: active
+
+  usd_inr:
+    name: USDINR spot
+    unit: INR per USD
+    frequency: daily
+    category: fx
+    source: yfinance
+    ticker: INR=X
+    source_url: https://finance.yahoo.com/quote/INR=X
+    license: "Yahoo Finance terms; personal/research use"
+    publication_lag_days: 0
+    status: active
+
+  usd_inr_fred:
+    name: India / U.S. Foreign Exchange Rate
+    unit: INR per USD
+    frequency: daily
+    category: fx
+    source: fred
+    ticker: DEXINUS
+    source_url: https://fred.stlouisfed.org/series/DEXINUS
+    license: "Public domain (US government)"
+    publication_lag_days: 1
+    status: fallback
+    notes: "FRED duplicate of usd_inr. Fetched only if the Yahoo series is empty (FRED graph CSV is often unreachable)."
+
+  dxy:
+    name: US Dollar Index
+    unit: index
+    frequency: daily
+    category: fx
+    source: yfinance
+    ticker: DX-Y.NYB
+    source_url: https://finance.yahoo.com/quote/DX-Y.NYB
+    license: "Yahoo Finance terms; personal/research use"
+    publication_lag_days: 0
+    status: active
+
+  dxy_fred:
+    name: "Trade Weighted U.S. Dollar Index: Broad, Goods"
+    unit: index
+    frequency: daily
+    category: fx
+    source: fred
+    ticker: DTWEXBGS
+    source_url: https://fred.stlouisfed.org/series/DTWEXBGS
+    license: "Public domain (US government)"
+    publication_lag_days: 1
+    status: fallback
+
+  us_real_yield_10y:
+    name: 10-Year Daily Treasury Par Real Yield Curve Rate
+    unit: percent
+    frequency: daily
+    category: macro
+    source: treasury
+    ticker: DORII10
+    source_url: https://home.treasury.gov/resource-center/data-chart-center/interest-rates/daily-treasury-rate-archives
+    license: "Public domain (US government)"
+    publication_lag_days: 1
+    status: active
+    notes: "Treasury.gov par real yield curve 10-year tenor (TIPS). Replaces FRED DFII10, which timed out. Never fabricated."
+
+  us_10y_yield:
+    name: CBOE 10-Year Treasury Yield
+    unit: percent
+    frequency: daily
+    category: macro
+    source: yfinance
+    ticker: "^TNX"
+    source_url: https://finance.yahoo.com/quote/%5ETNX
+    license: "Yahoo Finance terms; personal/research use"
+    publication_lag_days: 0
+    status: active
+    notes: "Yahoo ^TNX. FRED DGS10 is the canonical series but the FRED CSV endpoint is often unreachable without an API key."
+
+  wti_usd:
+    name: WTI Crude Oil Futures
+    unit: USD/barrel
+    frequency: daily
+    category: commodity
+    source: yfinance
+    ticker: CL=F
+    source_url: https://finance.yahoo.com/quote/CL=F
+    license: "Yahoo Finance terms; personal/research use"
+    publication_lag_days: 0
+    status: active
+
+  wti_fred:
+    name: "Crude Oil Prices: West Texas Intermediate"
+    unit: USD/barrel
+    frequency: daily
+    category: commodity
+    source: fred
+    ticker: DCOILWTICO
+    source_url: https://fred.stlouisfed.org/series/DCOILWTICO
+    license: "Public domain (US government)"
+    publication_lag_days: 1
+    status: fallback
+
+  india_cpi:
+    name: India CPI (World Bank, annual index)
+    unit: index
+    frequency: annual
+    category: macro
+    source: worldbank
+    ticker: FP.CPI.TOTL
+    country: IND
+    source_url: https://data.worldbank.org/indicator/FP.CPI.TOTL?locations=IN
+    license: "World Bank CC BY 4.0"
+    publication_lag_days: 180
+    status: active
+    notes: "Annual CPI index dated 31 Dec of each year. Monthly FRED OECD series is preferred when FRED is reachable."
+
+  india_call_rate:
+    name: India Call Money / Interbank Rate
+    unit: percent
+    frequency: monthly
+    category: macro
+    source: fred
+    ticker: IRSTCI01INM156N
+    source_url: https://fred.stlouisfed.org/series/IRSTCI01INM156N
+    license: "Public domain via FRED / OECD"
+    publication_lag_days: 30
+    status: fallback
+    notes: "Use curated rbi_repo_rate when FRED is unreachable."
+
+  gold_etf_nse:
+    name: Nippon India ETF Gold BeES (NSE)
+    unit: INR per unit
+    frequency: daily
+    category: price
+    source: yfinance
+    ticker: GOLDBEES.NS
+    source_url: https://finance.yahoo.com/quote/GOLDBEES.NS
+    license: "Yahoo Finance terms; personal/research use"
+    publication_lag_days: 0
+    status: active
+    notes: "Onshore India gold proxy. Converted to INR/10g with a documented factor; not MCX futures."
+
+  gold_import_duty:
+    name: India gold import duty (effective customs, curated)
+    unit: percent
+    frequency: irregular
+    category: policy
+    source: static
+    ticker: gold_import_duty
+    source_url: "Union Budget / CBIC notifications (curated event table)"
+    license: "Public government policy facts"
+    publication_lag_days: 0
+    status: active
+    notes: "Not a live feed. Step series of publicly announced duty changes."
+
+  rbi_repo_rate:
+    name: RBI repo rate (curated policy dates)
+    unit: percent
+    frequency: irregular
+    category: policy
+    source: static
+    ticker: rbi_repo_rate
+    source_url: "https://www.rbi.org.in (curated policy table)"
+    license: "Public RBI announcements"
+    publication_lag_days: 0
+    status: active
+
+  india_festivals:
+    name: India gold-demand festival calendar
+    unit: flag
+    frequency: daily
+    category: calendar
+    source: static
+    ticker: india_festivals
+    source_url: "Public Hindu calendar / Indian holidays"
+    license: "Public calendar facts"
+    publication_lag_days: 0
+    status: active
+
+derived:
+  gold_inr_10g:
+    name: International gold parity (INR per 10g)
+    inputs: [gold_usd_oz, usd_inr]
+    formula: "gold_usd_oz * usd_inr * (10 / 31.1034768)"
+    notes: "Parity price. Excludes Indian import duty, GST, making charges, and local premium. Not an official MCX or IBJA print."
+
+  gold_etf_inr_10g:
+    name: NSE Gold ETF implied INR per 10g
+    inputs: [gold_etf_nse]
+    formula: "gold_etf_nse * etf_units_per_10g"
+    etf_units_per_10g: 1000
+    notes: "GOLDBEES historically ~0.01g gold per unit after corporate actions. Factor is documented and may need adjustment after splits; values are labelled as ETF-implied."
+
+restricted:
+  mcx_gold_futures:
+    name: MCX Gold Futures (INR per 10g)
+    status: unavailable
+    reason: "MCX historical futures are licensed (datafeed@mcxindia.com). No free public API. Scraping mcxindia.com is disallowed. No fabricated prints are stored. See reports/output/indian_market_data_sources.md."
+    fallback: gold_inr_10g
+    license_contact: datafeed@mcxindia.com
+    source_url: https://www.mcxindia.com/technology/datafeed
+
+  ibja_gold:
+    name: IBJA gold (INR per 10g)
+    status: unavailable
+    reason: "IBJA AM/PM benchmark is a paid API; bulk history is XLS on request (nagaraj.iyer@ibja.in). No fabricated IBJA quotes are stored. See reports/output/indian_market_data_sources.md."
+    fallback: gold_etf_inr_10g
+    license_contact: nagaraj.iyer@ibja.in
+    source_url: https://indiagoldratesapi.com/Faqs.aspx

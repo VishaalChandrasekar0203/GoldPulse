@@ -1,0 +1,158 @@
+project:
+  name: gold-forecasting
+  timezone: Asia/Kolkata
+  currency: INR
+  unit: "INR per 10g"
+
+paths:
+  data_dir: data
+  parquet_dir: data/parquet
+  duckdb_path: data/gold.duckdb
+  mlflow_dir: mlruns
+  reports_dir: reports/output
+  log_dir: data/logs
+  model_dir: data/models
+
+target:
+  # Primary modelled series: international gold converted to INR/10g.
+  # Official MCX futures and IBJA quotes are not freely redistributable;
+  # see config/sources.yaml. GOLDBEES is the onshore India ETF proxy.
+  primary_series: gold_inr_10g
+  secondary_series: gold_etf_inr_10g
+  troy_ounce_grams: 31.1034768
+
+calendar:
+  market: XBOM  # NSE/BSE-style weekdays; MCX bullion also skips Indian holidays
+  weekend: [5, 6]  # Saturday, Sunday
+
+ingestion:
+  start_date: "2010-01-01"
+  request_timeout_seconds: 30
+  min_interval_seconds: 0.8
+  max_retries: 3
+  user_agent: "gold-forecasting/0.1 (research; local; respectful)"
+
+validation:
+  zscore_anomaly_threshold: 8.0
+  min_gold_inr_10g: 1000.0
+  max_gold_inr_10g: 500000.0
+  min_usd_inr: 20.0
+  max_usd_inr: 150.0
+
+features:
+  lags: [1, 2, 3, 5, 10, 21]
+  rolling_windows: [5, 21, 63]
+  rsi_period: 14
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  festival_window_days: 7
+
+training:
+  holdout_trading_days: 252
+  min_train_trading_days: 504
+  walk_forward_step: 21
+  walk_forward_test_size: 21
+  random_seed: 42
+  retrain_min_new_obs: 1
+  n_jobs: -1
+  pipeline_version: v2-logret
+  target: h_day_log_return
+  min_regimes_to_promote: 3
+  regimes:
+    - id: taper_2014
+      label: "2013-2014 taper"
+      test_start: "2014-07-01"
+      test_end: "2014-12-31"
+    - id: range_2018
+      label: "2016-2018 range"
+      test_start: "2018-07-01"
+      test_end: "2018-12-31"
+    - id: covid_2020
+      label: "2020 covid"
+      test_start: "2020-07-01"
+      test_end: "2020-12-31"
+    - id: hikes_2022
+      label: "2022 rate hikes"
+      test_start: "2022-07-01"
+      test_end: "2022-12-31"
+    - id: bull_2026
+      label: "2024-2026 bull"
+      test_start: "2026-05-01"
+      test_end: "2026-10-31"
+
+forecast:
+  horizons_calendar_days: [1, 7, 30, 90]
+  interval_low: 0.10
+  interval_high: 0.90
+  # residual_rmse is the production default until Stage-3 rolling-origin
+  # evidence promotes causal EWMA × √h on specific horizons.
+  interval_method: residual_rmse
+  interval_method_by_horizon:
+    1: ewma_sqrt_h
+  # Macro series beyond the cutoff are not treated as known.
+  # Monthly/policy features are held at last available-as-of value (scenario: unchanged).
+
+scenario:
+  gst_rate: 0.03  # illustrative GST on the onshore add-on only; not a forecast input
+  notes: "Scenarios are identity/elasticity what-ifs. They are never stored as champion forecasts."
+  packs:
+    bull:
+      label: "Bull (identity)"
+      xau_pct: 5.0
+      usdinr_pct: 1.0
+      dxy_pct: -2.0
+      yield_bp: -25.0
+      notes: "Gold up, INR weaker. Combined parity uses XAU+USDINR identity only. DXY/yield are elasticity overlays and are not added."
+    bear:
+      label: "Bear (identity)"
+      xau_pct: -5.0
+      usdinr_pct: -1.0
+      dxy_pct: 2.0
+      yield_bp: 25.0
+      notes: "Gold down, INR stronger. Combined parity uses identity only."
+    stress:
+      label: "Stress (identity)"
+      xau_pct: -8.0
+      usdinr_pct: 2.0
+      dxy_pct: 3.0
+      yield_bp: 50.0
+      notes: "Risk-off gold drop with INR depreciation. Combined parity uses identity only; do not add DXY/yield elasticities."
+
+ops:
+  # Ignored by gold run. Champions change only via gold train --all.
+  daily_retrain: false
+  lock_file: gold.run.lock
+  lock_stale_seconds: 10800
+  backup_before_daily: true
+  backup_retain: 7
+  ingest_retry_attempts: 3
+  ingest_retry_backoff_seconds: 1.5
+  recovery_pass: true
+  skip_forecast_on_critical_failure: true
+  critical_series:
+    - gold_usd_oz
+    - usd_inr
+    - gold_inr_10g
+  freshness_calendar_days: 4
+
+monitor:
+  rolling_window: 21
+  mae_alert_multiple: 1.5
+  coverage_alert_floor:
+    1: 0.70
+    7: 0.65
+    30: 0.60
+    90: 0.55
+  holdout_mae:
+    1: 1782.0
+    7: 3942.0
+    30: 7827.0
+    90: 14522.0
+  backfill_origins: 80
+  backfill_step: 5
+  stale_calendar_days: 4
+
+mlflow:
+  experiment_name: gold-forecasting
+  tracking_uri: null  # default: file:./mlruns
